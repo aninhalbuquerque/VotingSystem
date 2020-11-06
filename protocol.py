@@ -9,17 +9,24 @@ from binascii import hexlify
 import base64, os
 import random
 import string
+import hashlib
 
 class Protocol:
     
+    def create_dics(self):
+        # 'alas3' : {'nome': 'Ana Albuquerque', 'senha': 'senhacodificada'}
+        self.users = {}
+        # 'Voting Section 01' : {'Aninha':0, 'Day':0, 'Pucc4':0}
+        self.voting_sections = {}
+
     def open_server(self, port):
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_address = ('localhost', port)
         self.server.bind(self.server_address)
         self.server.listen(1)
         print('server on')
-
         self.generate_keys()
+        self.create_dics()
 
     def open_client(self, port):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -43,25 +50,22 @@ class Protocol:
             message = self.client.recv(4096)
             #servidor decifra a mensagem com sua chave privada e cifra com a chave publica do cliente
             message = self.decrypt_message(message)
-            #print(message)
             message = self.encrypt_message(message)
             self.client.sendall(message)
 
             self.secret_key = self.generate_secret_key()
-            #self.generate_symmetric_key(self.secret_key)
             encrypted_key = self.encrypt_message(self.secret_key)
             self.client.sendall(encrypted_key)
-            #print(self.secret_key)
 
-            message = self.client.recv(4096)
-            message = self.decrypt_symmetric(message)
-            print(message)
+            okay = self.client.recv(4096)
 
+            self.server_login()
 
 
                 
         finally:
             self.close_connection(self.client)
+            #self.close_connection(self.server)
         
     def client_connection(self):
         try:
@@ -85,18 +89,12 @@ class Protocol:
                 print('servidor nao confiavel')
                 self.close_connection(self.sock)
             
-            #print(message)
-            
             encrypted_key = self.sock.recv(4096)
             self.secret_key = self.decrypt_message(encrypted_key)
-            #print(self.secret_key)
 
-            message = self.random_message()
-            print(message)
-            message = self.encrypt_symmetric(message)
-            self.sock.sendall(message)
+            self.sock.sendall('okay')
 
-            
+            self.client_login()
 
         finally:
             self.close_connection(self.sock)
@@ -144,7 +142,6 @@ class Protocol:
         }
         return str(dic)
         
-    
     def decrypt_symmetric(self, message):
         dic = eval(message)
         m = dic['message']
@@ -154,7 +151,6 @@ class Protocol:
         original = self.unpad(decrypted)
         return original
     
-
     def pad(self, message):
         block_size = 16
         remainder = len(message) % block_size
@@ -163,7 +159,65 @@ class Protocol:
     
     def unpad(self, message): 
         return message.rstrip()
+    
+    def server_login(self):
+        menu = 'Digite a opcao desejada:\n1.Fazer login\n2.Cadastrar usuario\n'
+        self.send_hash(menu, self.client)
 
+        choice = self.recv_hash(self.client)
+        while choice != '1' and choice != '2':
+            erro = 'Entrada invalida, tente novamente.'
+            self.send_hash(erro, self.client)
+            choice = self.recv_hash(self.client)
+        
+        if choice == '1':
+            message = 'user quer fazer login'
+            print(message)
+            self.send_hash(message, self.client)
+        else:
+            message = 'user quer se cadastrar'
+            print(message)
+            self.send_hash(message, self.client)
+  
+    def client_login(self):
+        menu = self.recv_hash(self.sock)
+        print(menu)
 
+        choice = raw_input('->')
+        self.send_hash(choice, self.sock)
+        answer = self.recv_hash(self.sock)
+        while answer == 'Entrada invalida, tente novamente.':
+            print(answer)
+            choice = raw_input('->')
+            self.send_hash(choice, self.sock)
+            answer = self.recv_hash(self.sock)
+        
+        print(answer)  
+    
+    def send_hash(self, message, sock):
+        message = self.format_message(message)
+        message = self.encrypt_symmetric(message)
+        sock.sendall(message)
+    
+    def recv_hash(self, sock):
+        message = sock.recv(4096)
+        message = self.decrypt_symmetric(message)
+        message = eval(message)
+        if not self.compare_message(message):
+            print('servidor nao confiavel')
+            self.close_connection(sock)
+        
+        return message['message']
 
-
+    def format_message(self, message):
+        hashed = hashlib.sha256(message).hexdigest()
+        dic = {
+            'message' : message,
+            'hashed' : hashed 
+        }
+        return str(dic)
+    
+    def compare_message(self, dic):
+        m = hashlib.sha256(dic['message']).hexdigest()
+        hashed = dic['hashed']
+        return m == hashed
