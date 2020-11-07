@@ -12,6 +12,11 @@ import string
 import hashlib
 
 class Protocol:
+
+    n_clients = 0
+    cond = True
+    def return_users(self):
+        return self.users
     
     def create_dics(self):
         # 'alas3' : {'nome': 'Ana Albuquerque', 'senha': 'senhacodificada'}
@@ -28,6 +33,7 @@ class Protocol:
         print('server on')
         self.generate_keys()
         self.create_dics()
+        self.users = self.read_file()
 
     def open_client(self, port):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -41,6 +47,9 @@ class Protocol:
 
         try:
             print('conectou')
+            self.n_clients = self.n_clients + 1
+            if self.n_clients > 5:
+                self.cond = False
 
             self.client.sendall(self.public_key_str)
 
@@ -260,12 +269,14 @@ class Protocol:
         message = 'okay'
         self.send_hash(message, self.client)
 
-        '''if choice == '1':
+        if choice == '1':
+            message = 'okay'
             #self.server_vote()
         elif choice == '2':
+            message = 'okay'
             #self.server_results()
         else:
-            #self.server_create_session()'''
+            self.server_create_session()
 
     def user_login_client(self):
         os.system('clear')
@@ -308,15 +319,17 @@ class Protocol:
             choice = raw_input('->')
             self.send_hash(choice, self.sock)
             recv = self.recv_hash(self.sock)
-        
-        self.close_connection(self.sock)
 
-        '''if choice == '1':
+        if choice == '1':
+            message = 'okay'
             #self.client_vote()
         elif choice == '2':
+            message = 'okay'
             #self.client_results()
         else:
-            #self.client_create_session()'''
+            self.client_create_session()
+        
+        self.close_connection(self.sock)
 
     def cadastro_server(self):
 
@@ -375,7 +388,81 @@ class Protocol:
 
             if message == 'Usuario cadastrado com sucesso!':
                 ret = True
+            
+    def server_create_session(self):
+        message = 'nome da nova sessao de voto'
+
+        ret = False 
+        while not ret:
+            self.send_hash(message, self.client)
+            nome = self.recv_hash(self.client)
+            if nome in self.voting_sections:
+                message = 'ja existe uma sessao de voto com esse nome, tente novamente'
+            else:
+                self.voting_sections[nome] = []
+                ret = True
+
+        opcoes = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
+        message = 'quantidade de opcoes (1-9)'
+
+        x = 0
+        ret = False
+        while not ret:
+            self.send_hash(message, self.client)
+            qtOpcoes = self.recv_hash(self.client)
+            if not qtOpcoes in opcoes:
+                message = 'quantidade invalida, tente novamente'
+            else:
+                x = int(qtOpcoes)
+                ret = True
+
+        for i in range(1, x + 1):
+            opcao = "opcao " + str(i) + ":"
+            self.send_hash(opcao, self.client)
+            opcao = self.recv_hash(self.client)
+            self.voting_sections[nome].append({opcao:0})
+        #client.sendall(str(votingSections[nome]))
+
+        message = 'sessao criada com sucesso'
+        self.send_hash(message, self.client)
     
+    def client_create_session(self):
+        os.system('clear')
+        message = self.recv_hash(self.sock)
+        print(message)
+
+        ret = False 
+        while not ret:
+            nome = raw_input('->')
+            self.send_hash(nome, self.sock)
+            message = self.recv_hash(self.sock)
+            print(message)
+            if message != 'ja existe uma sessao de voto com esse nome, tente novamente':
+                ret = True
+
+        x = 0
+        ret = False 
+        opcoes = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
+        while not ret:
+            qtOpcoes = raw_input('->')
+            self.send_hash(qtOpcoes, self.sock)
+
+            if qtOpcoes in opcoes:
+                x = int(qtOpcoes)
+                ret = True
+            else:
+                message = self.recv_hash(self.sock)
+                print(message)
+        
+        for i in range(1, x + 1):
+            message = self.recv_hash(self.sock)
+            print(message)
+            opcao = raw_input('->')
+            self.send_hash(opcao, self.sock)
+        
+        message = self.recv_hash(self.sock)
+        print(message)
+        
     def send_hash(self, message, sock):
         message = self.format_message(message)
         message = self.encrypt_symmetric(message)
@@ -414,3 +501,20 @@ class Protocol:
         m = hashlib.sha256(dic['message']).hexdigest()
         hashed = dic['hashed']
         return m == hashed
+    
+    def read_file(self):
+
+        lista_users = []
+        arquivo = open("usuarios.txt", "r")
+        lista_users = arquivo.readlines()
+        arquivo.close()
+        my_dic = {}
+        for users in lista_users:
+            user_aux = users.split(" ")
+            length = len(user_aux[1])
+            user_name = user_aux[0]
+            password = user_aux[1]
+            password = password[0:(length-1)]
+            my_dic[user_name] = password
+
+        return my_dic
