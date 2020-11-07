@@ -271,7 +271,7 @@ class Protocol:
 
         if choice == '1':
             message = 'okay'
-            #self.server_vote()
+            self.server_vote()
         elif choice == '2':
             message = 'okay'
             #self.server_results()
@@ -322,7 +322,7 @@ class Protocol:
 
         if choice == '1':
             message = 'okay'
-            #self.client_vote()
+            self.client_vote()
         elif choice == '2':
             message = 'okay'
             #self.client_results()
@@ -388,7 +388,77 @@ class Protocol:
 
             if message == 'Usuario cadastrado com sucesso!':
                 ret = True
-            
+    
+    def client_vote(self):
+        vote = self.recv_hash(self.sock)
+        print(vote)
+        message = 'ok'
+        self.send_hash(message, self.sock)
+
+        while vote != 'escolha a sessao que voce gostaria de votar: ':
+            vote = self.recv_hash(self.sock)
+            print(vote)
+            message = 'ok'
+            self.send_hash(message, self.sock)
+        
+        section = raw_input('->')
+        self.send_hash(section, self.sock)
+
+        section = self.recv_hash(self.sock)
+        print(section)
+        message = 'ok'
+        self.send_hash(message, self.sock)
+
+        choose = self.recv_hash(self.sock)
+        print(choose)
+        choose = raw_input('->')
+        self.send_hash(choose, self.sock)
+
+        section = self.recv_hash(self.sock)
+        print(section)
+
+
+    def server_vote(self):
+        vote = 'sessoes de votacao abertas: '
+        self.send_hash(vote, self.client)
+        ok = self.recv_hash(self.client)
+
+        for i in self.voting_sections:
+            message = " -" + i
+            self.send_hash(message, self.client)
+            ok = self.recv_hash(self.client)
+        
+        vote = 'escolha a sessao que voce gostaria de votar: '
+        self.send_hash(vote, self.client)
+        ok = self.recv_hash(self.client)
+
+        section = self.recv_hash(self.client)
+        print(section)
+
+        if section in self.voting_sections:
+            options = str(self.voting_sections[section])
+            self.send_hash(options, self.client)
+            ok = self.recv_hash(self.client)
+
+            vote = 'escolha a opcao que voce gostaria de votar: '
+            self.send_hash(vote, self.client)
+
+            vote = self.recv_hash(self.client)
+            print(section, vote)
+
+            if vote in self.voting_sections[section]:
+                self.voting_sections[section][vote] = self.voting_sections[section][vote] + 1
+                options = str(self.voting_sections[section])
+                self.send_hash(options, self.client)
+            else:
+                options = 'essa opcao nao existe!'
+                self.send_hash(options, self.client)
+        else:
+            section = 'essa sessao nao existe!'
+            self.send_hash(options, self.client)
+
+
+
     def server_create_session(self):
         message = 'nome da nova sessao de voto'
 
@@ -399,7 +469,7 @@ class Protocol:
             if nome in self.voting_sections:
                 message = 'ja existe uma sessao de voto com esse nome, tente novamente'
             else:
-                self.voting_sections[nome] = []
+                self.voting_sections[nome] = {}
                 ret = True
 
         opcoes = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
@@ -420,7 +490,7 @@ class Protocol:
             opcao = "opcao " + str(i) + ":"
             self.send_hash(opcao, self.client)
             opcao = self.recv_hash(self.client)
-            self.voting_sections[nome].append({opcao:0})
+            self.voting_sections[nome][opcao] = 0
         #client.sendall(str(votingSections[nome]))
 
         message = 'sessao criada com sucesso'
