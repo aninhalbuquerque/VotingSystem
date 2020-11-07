@@ -15,7 +15,7 @@ class Protocol:
     
     def create_dics(self):
         # 'alas3' : {'nome': 'Ana Albuquerque', 'senha': 'senhacodificada'}
-        self.users = {}
+        self.users = {'aninha' : hashlib.sha256('linda').hexdigest()}
         # 'Voting Section 01' : {'Aninha':0, 'Day':0, 'Pucc4':0}
         self.voting_sections = {}
 
@@ -24,6 +24,7 @@ class Protocol:
         self.server_address = ('localhost', port)
         self.server.bind(self.server_address)
         self.server.listen(1)
+        os.system('clear')
         print('server on')
         self.generate_keys()
         self.create_dics()
@@ -161,51 +162,58 @@ class Protocol:
         return message.rstrip()
     
     def server_login(self):
-        menu = 'Digite a opcao desejada:\n1.Fazer login\n2.Cadastrar usuario\n'
-        self.send_hash(menu, self.client)
+        ret = False 
 
-        choice = self.recv_hash(self.client)
-        while choice != '1' and choice != '2':
-            erro = 'Entrada invalida, tente novamente.'
-            self.send_hash(erro, self.client)
+        while not ret:
+            menu = 'Digite a opcao desejada:\n1.Fazer login\n2.Cadastrar usuario\n'
+            self.send_hash(menu, self.client)
+
             choice = self.recv_hash(self.client)
-        
-        if choice == '1':
-            message = 'user quer fazer login'
-            print(message)
+            while choice != '1' and choice != '2':
+                erro = 'Entrada invalida, tente novamente.'
+                self.send_hash(erro, self.client)
+                choice = self.recv_hash(self.client)
+            
+            if choice == '1':
+                message = 'user quer fazer login'
+                print(message)
 
-            message = 'okay'
-            self.send_hash(message, self.client)
+                message = 'okay'
+                self.send_hash(message, self.client)
 
-            self.user_login_server()
-        else:
-            message = 'user quer se cadastrar'
-            print(message)
-            message = 'okay'
-            self.send_hash(message, self.client)
+                self.user_login_server()
 
-            self.cadastro_server()
+                ret = True
+            else:
+                message = 'user quer se cadastrar'
+                print(message)
+                message = 'okay'
+                self.send_hash(message, self.client)
+                
+                self.cadastro_server()
   
     def client_login(self):
-        menu = self.recv_hash(self.sock)
-        print(menu)
+        ret = False
 
-        choice = raw_input('->')
-        self.send_hash(choice, self.sock)
-        answer = self.recv_hash(self.sock)
-        while answer == 'Entrada invalida, tente novamente.':
-            print(answer)
+        while not ret:
+            os.system('clear')
+            menu = self.recv_hash(self.sock)
+            print(menu)
+
             choice = raw_input('->')
             self.send_hash(choice, self.sock)
             answer = self.recv_hash(self.sock)
+            while answer == 'Entrada invalida, tente novamente.':
+                print(answer)
+                choice = raw_input('->')
+                self.send_hash(choice, self.sock)
+                answer = self.recv_hash(self.sock)
 
-        if choice == '1':
-            self.user_login_client()
-        else:
-            self.cadastro_client()
-
-        
-        print(answer)  
+            if choice == '1':
+                self.user_login_client()
+                ret = True
+            else:
+                self.cadastro_client()
 
     def checa_login(self, usuario, senha):
         if self.users.get(usuario) == senha:
@@ -213,9 +221,7 @@ class Protocol:
         else:
             return False
 
-
     def user_login_server(self):
-
         ret = False
         message = 'por favor, entre com seu usuario.'
         self.send_hash(message, self.client)
@@ -226,7 +232,7 @@ class Protocol:
 
             message = 'por favor, entre com sua senha.'
             self.send_hash(message, self.client)
-            senha = self.recv_hash(self.client)
+            senha = self.recv_password(self.client)
 
             ret = self.checa_login(usuario, senha)
 
@@ -262,6 +268,7 @@ class Protocol:
             #self.server_create_session()'''
 
     def user_login_client(self):
+        os.system('clear')
 
         message = self.recv_hash(self.sock)
         print(message)
@@ -271,7 +278,7 @@ class Protocol:
         message = self.recv_hash(self.sock)
         print(message)
         senha = raw_input('->')
-        self.send_hash(senha, self.sock)
+        self.send_password(senha, self.sock)
 
         message = self.recv_hash(self.sock)
         while message != 'login realizado com sucesso!':
@@ -282,7 +289,7 @@ class Protocol:
             message = self.recv_hash(self.sock)
             print(message)
             senha = raw_input('->')
-            self.send_hash(senha, self.sock)
+            self.send_password(senha, self.sock)
             message = self.recv_hash(self.sock)
 
         print(message)
@@ -296,11 +303,13 @@ class Protocol:
         choice = raw_input('->')
         self.send_hash(choice, self.sock)
         recv = self.recv_hash(self.sock)
-        while recv != 'Entrada invalida, tente novamente.':
+        while recv == 'Entrada invalida, tente novamente.':
             print(recv)
             choice = raw_input('->')
             self.send_hash(choice, self.sock)
             recv = self.recv_hash(self.sock)
+        
+        self.close_connection(self.sock)
 
         '''if choice == '1':
             #self.client_vote()
@@ -310,38 +319,62 @@ class Protocol:
             #self.client_create_session()'''
 
     def cadastro_server(self):
-        message = 'Por favor, entre com o usuario que deseja cadastrar: '
-        self.send_hash(message, self.client)
-        usuario = self.recv_hash(self.client)
 
-        message = 'Por favor, entre com a senha: '
-        self.send_hash(message, self.client)
-        senha = self.recv_hash(self.client)
+        ret = False 
+        
+        while not ret:
+            message = 'Por favor, entre com o usuario que deseja cadastrar: '
+            self.send_hash(message, self.client)
+            usuario = self.recv_hash(self.client)
 
-        self.users[usuario] = senha
+            message = 'Por favor, entre com a senha: '
+            self.send_hash(message, self.client)
+            senha = self.recv_password(self.client)
+            #print(senha)
 
-        message = 'Usuario cadastrado com sucesso!'
-        self.send_hash(message, self.client)
+            message = 'Por favor, repita a senha: '
+            self.send_hash(message, self.client)
+            senha2 = self.recv_password(self.client)
+
+            if senha != senha2:
+                message = 'Senhas diferentes, tente novamente'
+                self.send_hash(message, self.client)
+            elif usuario in self.users: 
+                message = 'Usuario ja cadastrado, tente novamente'
+                self.send_hash(message, self.client)
+            else:
+                ret = True
+                self.users[usuario] = senha
+                message = 'Usuario cadastrado com sucesso!'
+                self.send_hash(message, self.client)           
 
     def cadastro_client(self):
-        message = self.recv_hash(self.sock)
-        print(message)
-        usuario = raw_input('->')
-        #N funciona quando envio a hash do usuario
-        usuario_hash = hashlib.sha256(usuario).hexdigest()
-        self.send_hash(usuario, self.sock)
+        os.system('clear')
 
-        message = self.recv_hash(self.sock)
-        print(message)
-        senha = raw_input('->')
-        #N funciona quando envio a hash da senha
-        senha_hash = hashlib.sha256(senha).hexdigest()
-        self.send_hash(senha, self.sock)
+        ret = False 
 
-        message = self.recv_hash(self.sock)
-        print(message)
+        while not ret:
+            message = self.recv_hash(self.sock)
+            print(message)
+            usuario = raw_input('->')
+            usuario_hash = hashlib.sha256(usuario).hexdigest()
+            self.send_hash(usuario, self.sock)
 
-        self.close_connection(self.sock)
+            message = self.recv_hash(self.sock)
+            print(message)
+            senha = raw_input('->')
+            self.send_password(senha, self.sock)
+
+            message = self.recv_hash(self.sock)
+            print(message)
+            senha2 = raw_input('->')
+            self.send_password(senha2, self.sock)
+
+            message = self.recv_hash(self.sock)
+            print(message)
+
+            if message == 'Usuario cadastrado com sucesso!':
+                ret = True
     
     def send_hash(self, message, sock):
         message = self.format_message(message)
@@ -357,6 +390,17 @@ class Protocol:
             self.close_connection(sock)
         
         return message['message']
+    
+    def send_password(self, password, sock):
+        password = hashlib.sha256(password).hexdigest()
+        #print(password)
+        password = self.encrypt_symmetric(password)
+        sock.sendall(password)
+    
+    def recv_password(self, sock):
+        password = sock.recv(4096)
+        password = self.decrypt_symmetric(password)
+        return password
 
     def format_message(self, message):
         hashed = hashlib.sha256(message).hexdigest()
