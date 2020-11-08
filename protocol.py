@@ -12,17 +12,27 @@ import string
 import hashlib
 
 class Protocol:
-
+    n_cadastros = 0
     n_clients = 0
     cond = True
     def return_users(self):
         return self.users
     
+    #setando um dicionario pra controlar a votacao
+    def votes(self):
+        my_dic = {}
+        for user in self.users:
+            my_dic[user] = 0
+        return my_dic
+        
+
     def create_dics(self):
         # 'alas3' : {'nome': 'Ana Albuquerque', 'senha': 'senhacodificada'}
         self.users = {'aninha' : hashlib.sha256('linda').hexdigest()}
         # 'Voting Section 01' : {'Aninha':0, 'Day':0, 'Pucc4':0}
         self.voting_sections = {}
+        #dic para a votacao
+        self.user_votes = {}
 
     def open_server(self, port):
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -34,6 +44,7 @@ class Protocol:
         self.generate_keys()
         self.create_dics()
         self.users = self.read_file()
+        #self.user_votes = self.votes()
 
     def open_client(self, port):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -251,6 +262,7 @@ class Protocol:
             else:
                 message = 'login realizado com sucesso!'
                 self.send_hash(message, self.client)
+                
 
         okay = self.recv_hash(self.client)
         if okay != 'okay':
@@ -271,10 +283,10 @@ class Protocol:
 
         if choice == '1':
             message = 'okay'
-            self.server_vote()
+            self.server_vote(usuario)
         elif choice == '2':
             message = 'okay'
-            #self.server_results()
+            self.server_results()
         else:
             self.server_create_session()
 
@@ -325,7 +337,7 @@ class Protocol:
             self.client_vote()
         elif choice == '2':
             message = 'okay'
-            #self.client_results()
+            self.client_results()
         else:
             self.client_create_session()
         
@@ -388,7 +400,54 @@ class Protocol:
 
             if message == 'Usuario cadastrado com sucesso!':
                 ret = True
-    
+
+    def server_results(self):
+        vote = 'sessoes de votacao: '
+        self.send_hash(vote, self.client)
+        ok = self.recv_hash(self.client)
+
+        for i in self.voting_sections:
+            message = " -" + i
+            self.send_hash(message, self.client)
+            ok = self.recv_hash(self.client)
+        
+        vote = 'escolha a sessao que voce gostaria de saber o resultado: '
+        self.send_hash(vote, self.client)
+        ok = self.recv_hash(self.client)
+
+        section = self.recv_hash(self.client)
+
+        finish = True
+        for users in self.users:
+           if self.user_votes[section][users] == 0:
+                finish = False
+                break
+        if finish == True: 
+            message = str(self.voting_sections[section])
+            self.send_hash(message, self.client)
+        else:
+            message = 'Votacao ainda nao terminou'
+            self.send_hash(message, self.client)
+
+    def client_results(self):
+        vote = self.recv_hash(self.sock)
+        print(vote)
+        message = 'ok'
+        self.send_hash(message, self.sock)
+
+        while vote != 'escolha a sessao que voce gostaria de saber o resultado: ':
+            vote = self.recv_hash(self.sock)
+            print(vote)
+            message = 'ok'
+            self.send_hash(message, self.sock)
+
+        section = raw_input('->')
+        self.send_hash(section, self.sock)
+
+        result = self.recv_hash(self.sock)
+        print(result)
+
+        
     def client_vote(self):
         vote = self.recv_hash(self.sock)
         print(vote)
@@ -414,11 +473,14 @@ class Protocol:
         choose = raw_input('->')
         self.send_hash(choose, self.sock)
 
-        section = self.recv_hash(self.sock)
-        print(section)
+        #section = self.recv_hash(self.sock)
+        #print(section)
+
+        message = self.recv_hash(self.sock)
+        print(message)
 
 
-    def server_vote(self):
+    def server_vote(self, usuario):
         vote = 'sessoes de votacao abertas: '
         self.send_hash(vote, self.client)
         ok = self.recv_hash(self.client)
@@ -448,8 +510,14 @@ class Protocol:
 
             if vote in self.voting_sections[section]:
                 self.voting_sections[section][vote] = self.voting_sections[section][vote] + 1
-                options = str(self.voting_sections[section])
-                self.send_hash(options, self.client)
+                message = 'votacao realizada com sucesso!'
+                self.send_hash(message, self.client)
+                #options = str(self.voting_sections[section])
+                #self.send_hash(options, self.client)
+                
+                #seto que o usuario ja votou
+                self.user_votes[section][usuario] = 1
+
             else:
                 options = 'essa opcao nao existe!'
                 self.send_hash(options, self.client)
@@ -470,6 +538,9 @@ class Protocol:
                 message = 'ja existe uma sessao de voto com esse nome, tente novamente'
             else:
                 self.voting_sections[nome] = {}
+                #para controlar os votos daquela sessao
+                self.user_votes[nome] = {}
+                self.user_votes[nome] = self.votes()
                 ret = True
 
         opcoes = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
@@ -541,13 +612,14 @@ class Protocol:
     def recv_hash(self, sock):
         message = sock.recv(4096)
         message = self.decrypt_symmetric(message)
+        #essa func da erro aqui as vezes
         message = eval(message)
         if not self.compare_message(message):
             print('servidor nao confiavel')
             self.close_connection(sock)
         
         return message['message']
-    
+       
     def send_password(self, password, sock):
         password = hashlib.sha256(password).hexdigest()
         #print(password)
@@ -586,5 +658,7 @@ class Protocol:
             password = user_aux[1]
             password = password[0:(length-1)]
             my_dic[user_name] = password
+            self.n_cadastros = self.n_cadastros + 1
+
 
         return my_dic
