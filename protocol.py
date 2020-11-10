@@ -36,7 +36,7 @@ class Protocol:
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_address = ('localhost', port)
         self.server.bind(self.server_address)
-        self.server.listen(1)
+        self.server.listen(6)
         os.system('clear')
         print('server on')
         self.generate_keys()
@@ -75,7 +75,7 @@ class Protocol:
 
         okay = self.client.recv(4096)
 
-        return True
+        return (self.client, self.client_address)
         
     def client_connection(self):
 
@@ -171,23 +171,22 @@ class Protocol:
         else:
             return False
 
-    def user_login_server(self):
-        usuario = self.recv_hash(self.client)
+    def user_login_server(self, client):
+        usuario = self.recv_hash(client)
         message = 'ok'
-        self.send_hash(message, self.client)
-        senha = self.recv_password(self.client)
+        self.send_hash(message, client)
+        senha = self.recv_password(client)
 
         ret = self.checa_login(usuario, senha)
 
         if ret == False:
             message = 'false'
-            self.send_hash(message, self.client)
+            self.send_hash(message, client)
         else:
             message = 'true'
-            self.send_hash(message, self.client)
-            self.my_user = usuario
+            self.send_hash(message, client)
         
-        return ret
+        return (ret, usuario)
 
     def user_login_client(self, usuario, senha):
         self.send_hash(usuario, self.sock)
@@ -200,29 +199,29 @@ class Protocol:
 
         return False
 
-    def cadastro_server(self):
-        usuario = self.recv_hash(self.client)
+    def cadastro_server(self, client):
+        usuario = self.recv_hash(client)
         ok = 'ok'
-        self.send_hash(ok, self.client)
+        self.send_hash(ok, client)
 
-        senha = self.recv_password(self.client)
+        senha = self.recv_password(client)
         ok = 'ok'
-        self.send_hash(ok, self.client)
+        self.send_hash(ok, client)
 
-        senha2 = self.recv_password(self.client)
+        senha2 = self.recv_password(client)
 
         if senha != senha2:
             message = 'Senhas diferentes, tente novamente'
-            self.send_hash(message, self.client)
+            self.send_hash(message, client)
             return False
         elif usuario in self.users: 
             message = 'Usuario ja cadastrado, tente novamente'
-            self.send_hash(message, self.client)
+            self.send_hash(message, client)
             return False
         else:
             self.users[usuario] = senha
             message = 'Usuario cadastrado com sucesso!'
-            self.send_hash(message, self.client) 
+            self.send_hash(message, client) 
             return True          
 
     def cadastro_client(self, usuario, senha, senha2):
@@ -240,8 +239,8 @@ class Protocol:
         
         return False, message
 
-    def server_results(self):
-        section = self.recv_hash(self.client)
+    def server_results(self, client):
+        section = self.recv_hash(client)
 
         finish = True
         for users in self.users:
@@ -250,10 +249,10 @@ class Protocol:
                 break
         if finish == True: 
             message = str(self.voting_sections[section])
-            self.send_hash(message, self.client)
+            self.send_hash(message, client)
         else:
             message = 'Votacao ainda nao terminou'
-            self.send_hash(message, self.client)
+            self.send_hash(message, client)
 
     def client_results(self, section):
         self.send_hash(section, self.sock)
@@ -261,13 +260,13 @@ class Protocol:
         result = self.recv_hash(self.sock)
         return result
 
-    def send_voting_sections(self):
+    def send_voting_sections(self, client):
         array = []
         for v in self.voting_sections:
             array.append(v)
         
         array = str(array)
-        self.send_hash(array, self.client)
+        self.send_hash(array, client)
     
     def recv_voting_sections(self):
         array = self.recv_hash(self.sock)
@@ -275,20 +274,20 @@ class Protocol:
 
         return array
 
-    def send_options(self):
-        section = self.recv_hash(self.client)
+    def send_options(self, client):
+        section = self.recv_hash(client)
 
         array = []
         if not section in self.voting_sections:
             array = str(array)
-            self.send_hash(array, self.client)
+            self.send_hash(array, client)
             return False 
         
         for x in self.voting_sections[section]:
             array.append(x)
         
         array = str(array)
-        self.send_hash(array, self.client)
+        self.send_hash(array, client)
         return True
     
     def recv_options(self, section):
@@ -309,42 +308,42 @@ class Protocol:
             return True 
         return False
 
-    def server_vote(self):
-        section = self.recv_hash(self.client)
+    def server_vote(self, client, my_user):
+        section = self.recv_hash(client)
         ok = 'ok'
-        self.send_hash(ok, self.client)
+        self.send_hash(ok, client)
 
-        option = self.recv_hash(self.client)
+        option = self.recv_hash(client)
         if not section in self.voting_sections:
             ok = 'false'
-            self.send_hash(ok, self.client)
+            self.send_hash(ok, client)
             return False 
         if not option in self.voting_sections[section]:
             ok = 'false'
-            self.send_hash(ok, self.client)
+            self.send_hash(ok, client)
             return False
-        if self.user_votes[section][self.my_user] == True:
+        if self.user_votes[section][my_user] == True:
             ok = 'false'
-            self.send_hash(ok, self.client)
+            self.send_hash(ok, client)
             return False 
             
         ok = 'true'
-        self.send_hash(ok, self.client)
+        self.send_hash(ok, client)
         self.voting_sections[section][option] = self.voting_sections[section][option] + 1
-        self.user_votes[section][self.my_user] = True
+        self.user_votes[section][my_user] = True
         return True
 
-    def server_create_session(self):
-        name = self.recv_hash(self.client)
+    def server_create_session(self, client):
+        name = self.recv_hash(client)
         ok = 'ok'
-        self.send_hash(ok, self.client)
+        self.send_hash(ok, client)
 
-        options = self.recv_hash(self.client)
+        options = self.recv_hash(client)
         options = eval(options)
 
         if name in self.voting_sections:
             message = 'false'
-            self.send_hash(message, self.client)
+            self.send_hash(message, client)
             return False 
         else:
             self.voting_sections[name] = options
@@ -354,7 +353,7 @@ class Protocol:
             self.user_votes[name] = self.votes()
 
             message = 'true'
-            self.send_hash(message, self.client)
+            self.send_hash(message, client)
             return True
     
     def client_create_session(self, name, options):
