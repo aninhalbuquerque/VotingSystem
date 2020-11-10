@@ -6,7 +6,7 @@ sock.open_server(10000)
 while sock.cond:
     sock.server_wait_connection()
     
-    #print(choice)
+    saiu = False
     ret = False 
     while not ret:
         choice = sock.recv_hash(sock.client)
@@ -16,12 +16,17 @@ while sock.cond:
                 ok = sock.user_login_server()
             
             ret = True
-        else:
+        elif choice == '2':
             ok = False
             while not ok:
                 ok = sock.cadastro_server()
-    
-    ret = False 
+        else: 
+            sock.close_connection(sock.client)
+            ret = True
+            saiu = True
+
+    if not saiu:
+        ret = False 
     while not ret:
         choice = sock.recv_hash(sock.client)
         if choice == '1':
