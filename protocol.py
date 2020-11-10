@@ -15,14 +15,14 @@ class Protocol:
     n_cadastros = 0
     n_clients = 0
     cond = True
+    my_user = 'alguem'
     def return_users(self):
         return self.users
-    
     #setando um dicionario pra controlar a votacao
     def votes(self):
         my_dic = {}
         for user in self.users:
-            my_dic[user] = 0
+            my_dic[user] = False
         return my_dic
         
     def create_dics(self):
@@ -48,7 +48,6 @@ class Protocol:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_address = ('localhost', port)
         self.sock.connect(self.server_address)
-
         self.generate_keys()
     
     def server_wait_connection(self):
@@ -186,6 +185,7 @@ class Protocol:
         else:
             message = 'true'
             self.send_hash(message, self.client)
+            self.my_user = usuario
         
         return ret
 
@@ -197,6 +197,7 @@ class Protocol:
         ok = self.recv_hash(self.sock)
         if ok == 'true':
             return True 
+
         return False
 
     def cadastro_server(self):
@@ -241,11 +242,10 @@ class Protocol:
 
     def server_results(self):
         section = self.recv_hash(self.client)
-        message = str(self.voting_sections[section])
-        self.send_hash(message, self.client)
-        '''finish = True
+
+        finish = True
         for users in self.users:
-           if self.user_votes[section][users] == 0:
+           if self.user_votes[section][users] == False:
                 finish = False
                 break
         if finish == True: 
@@ -253,7 +253,7 @@ class Protocol:
             self.send_hash(message, self.client)
         else:
             message = 'Votacao ainda nao terminou'
-            self.send_hash(message, self.client)'''
+            self.send_hash(message, self.client)
 
     def client_results(self, section):
         self.send_hash(section, self.sock)
@@ -322,11 +322,16 @@ class Protocol:
         if not option in self.voting_sections[section]:
             ok = 'false'
             self.send_hash(ok, self.client)
+            return False
+        if self.user_votes[section][self.my_user] == True:
+            ok = 'false'
+            self.send_hash(ok, self.client)
             return False 
-
+            
         ok = 'true'
         self.send_hash(ok, self.client)
         self.voting_sections[section][option] = self.voting_sections[section][option] + 1
+        self.user_votes[section][self.my_user] = True
         return True
 
     def server_create_session(self):
@@ -343,6 +348,11 @@ class Protocol:
             return False 
         else:
             self.voting_sections[name] = options
+
+            #dic para a votacao daquela sessao
+            self.user_votes[name] = {}
+            self.user_votes[name] = self.votes()
+
             message = 'true'
             self.send_hash(message, self.client)
             return True
