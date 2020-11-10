@@ -2,12 +2,12 @@ from protocol import *
 
 def menu_login():
     os.system('clear')
-    menu = 'Digite a opcao desejada:\n1.Fazer login\n2.Cadastrar usuario\n'
+    menu = 'Digite a opcao desejada:\n1.Fazer login\n2.Cadastrar usuario\n3.Sair'
     print(menu)
 
     choice = raw_input('->')
     choice = str(choice)
-    while choice != '1' and choice != '2':
+    while choice != '1' and choice != '2' and choice != '3':
         erro = 'Entrada invalida, tente novamente.'
         print(erro)
         choice = raw_input('->')
@@ -116,6 +116,7 @@ sock = Protocol()
 sock.open_client(10000)
 sock.client_connection()
 
+saiu = False 
 ret = False 
 while not ret:
     choice = menu_login()
@@ -131,15 +132,21 @@ while not ret:
             ok = sock.user_login_client(user, password)
         
         ret = True
-    else:
+    elif choice == '2':
         user, password, password2 = user_registration()
         ok, erro = sock.cadastro_client(user, password, password2)
         while not ok:
             print(erro)
             user, password, password2 = user_registration()
             ok, erro = sock.cadastro_client(user, password, password2)
+    
+    else:
+        sock.close_connection(sock.sock)
+        saiu = True
+        ret = True
 
-ret = False
+if not saiu:
+    ret = False
 while not ret:
     choice = menu_vote()
     sock.send_hash(choice, sock.sock)
@@ -173,4 +180,3 @@ while not ret:
     else:
         sock.close_connection(sock.sock)
         ret = True
-
