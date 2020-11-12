@@ -16,26 +16,26 @@ def menu_login():
     return choice
 
 def user_login():
-    message = 'por favor, entre com seu usuario.'
+    message = 'Nome de usuario:'
     print(message)
     user = raw_input('->')
     user = str(user)
-    message = 'por favor, entre com sua senha.'
+    message = 'Senha:'
     print(message)
     password = raw_input('->')
     password = str(password)
     return user, password
 
 def user_registration():
-    message = 'Por favor, entre com o usuario que deseja cadastrar: '
+    message = 'Usuario: '
     print(message)
     user = raw_input('->')
     user = str(user)
-    message = 'Por favor, entre com a senha: '
+    message = 'Senha: '
     print(message)
     password = raw_input('->')
     password = str(password)
-    message = 'Por favor, repita a senha: '
+    message = 'Repita a senha: '
     print(message)
     password2 = raw_input('->')
     password2 = str(password2)
@@ -57,88 +57,88 @@ def menu_vote():
     return choice
 
 def vote(voting_sections, see):
-    print('sessoes de votacao: ')
+    print('Sessoes de votacao: ')
     for x in voting_sections:
         print(' - ' + x)
     
-    print('escolha a sessao que voce gostaria de ' + see + ': ')
+    print('Escolha a sessao que voce gostaria de ' + see + ': ')
     choice = raw_input('->')
     while not choice in voting_sections:
-        print('sessao nao existe. tente novamente')
+        print('Sessao nao existe. Tente novamente')
         choice = raw_input('->')
     
     return choice
 
 def vote_options(voting_options):
-    print('opcoes: ')
+    print('Opcoes: ')
     for x in voting_options:
         print(' - ' + x)
     
-    print('escolha a opcao que voce gostaria de votar: ')
+    print('Escolha a opcao que voce gostaria de votar: ')
     choice = raw_input('->')
     while not choice in voting_options:
-        print('sessao nao existe. tente novamente')
+        print('Opcao nao existe. Tente novamente:')
         choice = raw_input('->')
     
     return choice
 
 def create():
-    message = 'nome da nova sessao de voto'
+    message = 'Nome da nova sessao de voto:'
     print(message)
     nome = raw_input('->')
     opcoes = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
-    message = 'quantidade de opcoes (1-9)'
+    message = 'Quantidade de opcoes (1-9):'
     x = 0
     ret = False
     while not ret:
         print(message)
         qtOpcoes = raw_input('->')
         if not qtOpcoes in opcoes:
-            message = 'quantidade invalida, tente novamente'
+            message = 'Quantidade invalida. Tente novamente:'
         else:
             x = int(qtOpcoes)
             ret = True
     
     options = {}
     for i in range(1, x + 1):
-        opcao = "opcao " + str(i) + ":"
+        opcao = "Opcao " + str(i) + ":"
         print(opcao)
         opcao = raw_input('->')
         while opcao in options:
-            print('essa opcao ja existe. tente novamente')
+            print('Essa opcao ja existe. Tente novamente:')
             opcao = raw_input('->')
         options[opcao] = 0
     
     return nome, options
 
-sock = Protocol()
+sock = votingsys()
 
 sock.open_client(10000)
-sock.client_connection()
+secret_key = sock.client_connection()
 
 saiu = False 
 ret = False 
 while not ret:
     choice = menu_login()
-    sock.send_hash(choice, sock.sock)
+    sock.send_hash(choice, sock.sock, secret_key)
     os.system('clear')
 
     if choice == '1':
         user, password = user_login()
-        ok = sock.user_login_client(user, password)
+        ok = sock.user_login_client(user, password, secret_key)
         while not ok:
             print('Usuario ou senha invalidos. Tente novamente.')
             user, password = user_login()
-            ok = sock.user_login_client(user, password)
+            ok = sock.user_login_client(user, password, secret_key)
         
         ret = True
     elif choice == '2':
         user, password, password2 = user_registration()
-        ok, erro = sock.cadastro_client(user, password, password2)
+        ok, erro = sock.cadastro_client(user, password, password2, secret_key)
         while not ok:
             print(erro)
             user, password, password2 = user_registration()
-            ok, erro = sock.cadastro_client(user, password, password2)
+            ok, erro = sock.cadastro_client(user, password, password2, secret_key)
     
     else:
         sock.close_connection(sock.sock)
@@ -149,33 +149,55 @@ if not saiu:
     ret = False
 while not ret:
     choice = menu_vote()
-    sock.send_hash(choice, sock.sock)
+    sock.send_hash(choice, sock.sock, secret_key)
     os.system('clear')
 
     if choice == '1': #votar
-        voting_sections = sock.recv_voting_sections()
+        voting_sections = sock.recv_voting_sections(secret_key)
         section = vote(voting_sections, 'votar')
-        voting_options = sock.recv_options(section)
+        voting_options = sock.recv_options(section, secret_key)
         option = vote_options(voting_options)
 
-        sock.client_vote(section, option)
+        (ok, erro) = sock.client_vote(section, option, secret_key)
+
+        if ok:
+            print('Voto registrado com sucesso!')
+        else:
+            print(erro)
+        print('Espere')
+        cont = 0
+        while cont < 10000000:
+            cont = cont + 1
     
     elif choice == '2': #checar resultado
-        voting_sections = sock.recv_voting_sections()
+        voting_sections = sock.recv_voting_sections(secret_key)
         section = vote(voting_sections, 'ver o resultado')
-        result = sock.client_results(section)
-        print(result)
+        ok, result = sock.client_results(section, secret_key)
+        if not ok:
+            print(result)
+        else:
+            result = eval(result)
+            array = []
+            for x in result:
+                array.append((result[x], x))
+            
+            array = sorted(array, key = lambda x: (-x[0],x[1]))
+
+            for (qtVotes, option) in array:
+                print(str(option) + '  ->  ' + str(qtVotes))
+
+        print('Espere')
         cont = 0
-        while cont < 200000000:
+        while cont < 10000000:
             cont = cont + 1
 
     elif choice == '3': #criar
         name, options = create()
-        ok = sock.client_create_session(name, options)
+        ok = sock.client_create_session(name, options, secret_key)
         while not ok:
-            print('ja existe uma sessao com esse nome, tente novamente')
+            print('Ja existe uma sessao com esse nome. Tente novamente')
             name, options = create()
-            ok = sock.client_create_session(name, options)
+            ok = sock.client_create_session(name, options, secret_key)
     
     else:
         sock.close_connection(sock.sock)
