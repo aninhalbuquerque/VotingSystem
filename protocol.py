@@ -109,6 +109,12 @@ class votingsys:
         print('closing socket')
         sock.close()
 
+    def write_clients(self):
+        arquivo = open("usuarios.txt", "w")
+        for user in self.users:
+            arquivo.writelines(user + " " + self.users[user] + "\n")
+        arquivo.close()
+
     def generate_keys(self):
         self.private_key = RSA.generate(4096, Random.new().read)
         self.public_key = self.private_key.publickey()
@@ -184,6 +190,7 @@ class votingsys:
                 while not ok:
                     ok = self.cadastro_server(client, secret_key)
             else: 
+                self.write_clients()
                 self.close_connection(client)
                 ret = True
                 saiu = True
@@ -206,6 +213,7 @@ class votingsys:
                 while not ok:
                     ok = self.server_create_session(client, secret_key)
             else:
+                self.write_clients()
                 self.close_connection(client)
                 ret = True
 
