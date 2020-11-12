@@ -56,14 +56,14 @@ def menu_vote():
     
     return choice
 
-def vote(voting_sections, see):
+def vote(voting_sessions, see):
     print('Sessoes de votacao: ')
-    for x in voting_sections:
+    for x in voting_sessions:
         print(' - ' + x)
     
     print('Escolha a sessao que voce gostaria de ' + see + ': ')
     choice = raw_input('->')
-    while not choice in voting_sections:
+    while not choice in voting_sessions:
         print('Sessao nao existe. Tente novamente')
         choice = raw_input('->')
     
@@ -113,7 +113,7 @@ def create():
 
 sock = votingsys()
 
-sock.open_client(10000)
+sock.open_client(10000, 'localhost')
 secret_key = sock.client_connection()
 
 saiu = False 
@@ -153,12 +153,12 @@ while not ret:
     os.system('clear')
 
     if choice == '1': #votar
-        voting_sections = sock.recv_voting_sections(secret_key)
-        section = vote(voting_sections, 'votar')
-        voting_options = sock.recv_options(section, secret_key)
+        voting_sessions = sock.recv_voting_sessions(secret_key)
+        session = vote(voting_sessions, 'votar')
+        voting_options = sock.recv_options(session, secret_key)
         option = vote_options(voting_options)
 
-        (ok, erro) = sock.client_vote(section, option, secret_key)
+        (ok, erro) = sock.client_vote(session, option, secret_key)
 
         if ok:
             print('Voto registrado com sucesso!')
@@ -166,13 +166,13 @@ while not ret:
             print(erro)
         print('Espere')
         cont = 0
-        while cont < 10000000:
+        while cont < 40000000:
             cont = cont + 1
     
     elif choice == '2': #checar resultado
-        voting_sections = sock.recv_voting_sections(secret_key)
-        section = vote(voting_sections, 'ver o resultado')
-        ok, result = sock.client_results(section, secret_key)
+        voting_sessions = sock.recv_voting_sessions(secret_key)
+        session = vote(voting_sessions, 'ver o resultado')
+        ok, result = sock.client_results(session, secret_key)
         if not ok:
             print(result)
         else:
@@ -188,7 +188,7 @@ while not ret:
 
         print('Espere')
         cont = 0
-        while cont < 10000000:
+        while cont < 40000000:
             cont = cont + 1
 
     elif choice == '3': #criar
