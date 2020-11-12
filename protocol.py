@@ -25,8 +25,8 @@ class votingsys:
         
     def create_dics(self):
         self.users = {}
-        # 'Voting Section 01' : {'Aninha':0, 'Day':0, 'Pucc4':0}
-        self.voting_sections = {}
+        # 'Voting Session 01' : {'Aninha':0, 'Day':0, 'Pucc4':0}
+        self.voting_sessions = {}
         #dic para a votacao
         self.user_votes = {}
 
@@ -42,9 +42,9 @@ class votingsys:
         self.users = self.read_file()
         self.mutex = threading.Lock()
 
-    def open_client(self, port):
+    def open_client(self, port, server_ip):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server_address = ('localhost', port)
+        self.server_address = (server_ip, port)
         self.sock.connect(self.server_address)
         self.generate_keys()
     
@@ -200,12 +200,12 @@ class votingsys:
         while not ret:
             choice = self.recv_hash(client, secret_key)
             if choice == '1':
-                self.send_voting_sections(client, secret_key)
+                self.send_voting_sessions(client, secret_key)
                 self.send_options(client, secret_key)
                 self.server_vote(client, usuario, secret_key)
         
             elif choice == '2':
-                self.send_voting_sections(client, secret_key)
+                self.send_voting_sessions(client, secret_key)
                 self.server_results(client, secret_key)
 
             elif choice == '3':
@@ -293,71 +293,71 @@ class votingsys:
         return False, message
 
     def server_results(self, client, secret_key):
-        section = self.recv_hash(client, secret_key)
-        if not section in self.voting_sections:
+        session = self.recv_hash(client, secret_key)
+        if not session in self.voting_sessions:
             message = 'Essa sessao nao existe'
             self.send_hash(message, client, secret_key)
         else:
             finish = True
             for users in self.users:
-                if not users in self.user_votes[section] or self.user_votes[section][users] == False:
+                if not users in self.user_votes[session] or self.user_votes[session][users] == False:
                     finish = False
                     break  
             
             if finish == True: 
-                message = str(self.voting_sections[section])
+                message = str(self.voting_sessions[session])
                 self.send_hash(message, client, secret_key)
             else:
                 message = 'Votacao ainda nao terminou'
                 self.send_hash(message, client, secret_key)
 
-    def client_results(self, section, secret_key):
-        self.send_hash(section, self.sock, secret_key)
+    def client_results(self, session, secret_key):
+        self.send_hash(session, self.sock, secret_key)
 
         result = self.recv_hash(self.sock, secret_key)
         if result == 'Votacao ainda nao terminou' or result == 'Essa sessao nao existe':
             return (False, result)
         return (True, result)
 
-    def send_voting_sections(self, client, secret_key):
+    def send_voting_sessions(self, client, secret_key):
         array = []
-        for v in self.voting_sections:
+        for v in self.voting_sessions:
             array.append(v)
         
         array = str(array)
         self.send_hash(array, client, secret_key)
     
-    def recv_voting_sections(self, secret_key):
+    def recv_voting_sessions(self, secret_key):
         array = self.recv_hash(self.sock, secret_key)
         array = eval(array)
 
         return array
 
     def send_options(self, client, secret_key):
-        section = self.recv_hash(client, secret_key)
+        session = self.recv_hash(client, secret_key)
 
         array = []
-        if not section in self.voting_sections:
+        if not session in self.voting_sessions:
             array = str(array)
             self.send_hash(array, client, secret_key)
             return False 
         
-        for x in self.voting_sections[section]:
+        for x in self.voting_sessions[session]:
             array.append(x)
         
         array = str(array)
         self.send_hash(array, client, secret_key)
         return True
     
-    def recv_options(self, section, secret_key):
-        self.send_hash(section, self.sock, secret_key)
+    def recv_options(self, session, secret_key):
+        self.send_hash(session, self.sock, secret_key)
         array = self.recv_hash(self.sock, secret_key)
         array = eval(array)
 
         return array
 
-    def client_vote(self, section, option, secret_key):
-        self.send_hash(section, self.sock, secret_key)
+    def client_vote(self, session, option, secret_key):
+        self.send_hash(session, self.sock, secret_key)
         ok = self.recv_hash(self.sock, secret_key)
 
         self.send_hash(option, self.sock, secret_key)
@@ -368,20 +368,20 @@ class votingsys:
         return (False, ok)
 
     def server_vote(self, client, my_user, secret_key):
-        section = self.recv_hash(client, secret_key)
+        session = self.recv_hash(client, secret_key)
         ok = 'ok'
         self.send_hash(ok, client, secret_key)
 
         option = self.recv_hash(client, secret_key)
-        if not section in self.voting_sections:
+        if not session in self.voting_sessions:
             ok = 'Essa sessao nao exite'
             self.send_hash(ok, client, secret_key)
             return False 
-        if not option in self.voting_sections[section]:
+        if not option in self.voting_sessions[session]:
             ok = 'Essa opcao nao existe nessa sessao'
             self.send_hash(ok, client, secret_key)
             return False
-        if my_user in self.user_votes[section] and self.user_votes[section][my_user] == True:
+        if my_user in self.user_votes[session] and self.user_votes[session][my_user] == True:
             ok = 'Usuario ja votou nessa sessao'
             self.send_hash(ok, client, secret_key)
             return False 
@@ -389,8 +389,8 @@ class votingsys:
         ok = 'true'
         self.send_hash(ok, client, secret_key)
         with self.mutex:
-            self.voting_sections[section][option] = self.voting_sections[section][option] + 1
-            self.user_votes[section][my_user] = True
+            self.voting_sessions[session][option] = self.voting_sessions[session][option] + 1
+            self.user_votes[session][my_user] = True
         
         return True
 
@@ -402,13 +402,13 @@ class votingsys:
         options = self.recv_hash(client, secret_key)
         options = eval(options)
 
-        if name in self.voting_sections:
+        if name in self.voting_sessions:
             message = 'false'
             self.send_hash(message, client, secret_key)
             return False 
         else:
             with self.mutex:
-                self.voting_sections[name] = options
+                self.voting_sessions[name] = options
 
                 #dic para a votacao daquela sessao
                 self.user_votes[name] = {}
